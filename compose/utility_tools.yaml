@@ -1,0 +1,52 @@
+x-logging: &default-logging
+  driver: "json-file"
+  options:
+    max-size: "10m"
+    max-file: "3"
+    labels: "service,environment"
+    tag: "{{.Name}}"
+    # Adding this ensures log messages are properly formatted as JSON
+    env: "container_name={{.Name}},service={{.Service}}"
+
+services:
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: pgadmin
+    # restart: unless-stopped
+    ports:
+      - "5050:80"
+    volumes:
+      - ../data/pgadmin:/var/lib/pgadmin
+    environment:
+      PGADMIN_DEFAULT_EMAIL: "${PGADMIN_DEFAULT_EMAIL:-admin@example.com}"
+      PGADMIN_DEFAULT_PASSWORD: "${PGADMIN_DEFAULT_PASSWORD:-pgadmin}"
+    networks:
+      - cms_network
+    depends_on:
+      - postgres
+    logging:
+      <<: *default-logging
+      options:
+        max-size: "5m"
+        max-file: "2"
+        tag: "{{.Name}}"
+        labels: "service,environment"
+        env: "service=utility,container_name={{.Name}}"
+  
+  mailhog:
+    image: mailhog/mailhog:latest
+    container_name: mailhog
+    # restart: unless-stopped
+    ports:
+      - "1025:1025" # SMTP server
+      - "8025:8025" # Web UI
+    networks:
+      - cms_network
+    logging:
+      <<: *default-logging
+      options:
+        max-size: "5m"
+        max-file: "2"
+        tag: "{{.Name}}"
+        labels: "service,environment"
+        env: "service=utility,container_name={{.Name}}"

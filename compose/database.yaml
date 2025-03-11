@@ -1,0 +1,43 @@
+x-logging: &default-logging
+  driver: "json-file"
+  options:
+    max-size: "10m"
+    max-file: "3"
+    labels: "service,environment"
+    tag: "{{.Name}}"
+    # Adding this ensures log messages are properly formatted as JSON
+    env: "container_name={{.Name}},service={{.Service}}"
+
+services:
+  postgres:
+    image: ankane/pgvector:latest
+    container_name: postgres
+    # restart: unless-stopped
+    volumes:
+      - ../data/postgres:/var/lib/postgresql/data
+      - ../config/postgres/postgresql.conf:/etc/postgresql/postgresql.conf
+      - ../config/postgres/pg_hba.conf:/etc/postgresql/pg_hba.conf
+      - ../config/postgres/init:/docker-entrypoint-initdb.d
+    environment:
+      POSTGRES_USER: "${POSTGRES_USER:-directus}"
+      POSTGRES_PASSWORD: "${POSTGRES_PASSWORD:-directus}"
+      POSTGRES_DB: "${POSTGRES_DB:-directus}"
+    command: postgres -c config_file=/etc/postgresql/postgresql.conf -c hba_file=/etc/postgresql/pg_hba.conf
+    ports:
+      - "5432:5432"
+    networks:
+      - cms_network
+    healthcheck:
+      test: ["CMD", "pg_isready", "--host=localhost", "--username=directus"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    logging:
+      <<: *default-logging
+      options:
+        max-size: "10m"
+        max-file: "3"
+        tag: "{{.Name}}"
+        labels: "service,environment"
+        env: "service=database,container_name={{.Name}}"

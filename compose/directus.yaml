@@ -1,0 +1,44 @@
+x-logging: &default-logging
+  driver: "json-file"
+  options:
+    max-size: "10m"
+    max-file: "3"
+    labels: "service,environment"
+    tag: "{{.Name}}"
+    # Adding this ensures log messages are properly formatted as JSON
+    env: "container_name={{.Name}},service={{.Service}}"
+
+services:
+  directus:
+    image: directus/directus:11.5.1
+    container_name: directus
+    # restart: unless-stopped
+    ports:
+      - "8055:8055"
+    volumes:
+      - ../data/directus/uploads:/directus/uploads
+      - ../data/directus/extensions:/directus/extensions
+      - ../data/directus/config:/directus/config
+    env_file:
+      - ../config/directus/.env
+    networks:
+      - cms_network
+    depends_on:
+      postgres:
+        condition: service_healthy
+      keydb:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--spider", "http://localhost:8055/server/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    logging:
+      <<: *default-logging
+      options:
+        max-size: "10m"
+        max-file: "3"
+        tag: "{{.Name}}"
+        labels: "service,environment"
+        env: "service=cms,container_name={{.Name}}"

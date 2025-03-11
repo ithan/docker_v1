@@ -1,0 +1,4 @@
+# Git ignore, first all in ./data
+/data/*
+
+data/

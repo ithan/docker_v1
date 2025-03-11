@@ -1,0 +1,10 @@
+include:
+  - compose/directus.yaml
+  - compose/database.yaml
+  - compose/cache.yaml
+  - compose/observability.yaml
+  - compose/utility_tools.yaml
+
+networks:
+  cms_network:
+    driver: bridge

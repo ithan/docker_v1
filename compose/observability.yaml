@@ -1,0 +1,213 @@
+x-logging: &default-logging
+  driver: "json-file"
+  options:
+    max-size: "10m"
+    max-file: "3"
+    labels: "service,environment"
+    tag: "{{.Name}}"
+    # Adding this ensures log messages are properly formatted as JSON
+    env: "container_name={{.Name}},service={{.Service}}"
+
+services:
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: prometheus
+    # restart: unless-stopped
+    volumes:
+      - ../config/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
+      - ../data/prometheus:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.console.templates=/etc/prometheus/consoles'
+      - '--web.enable-lifecycle'
+    ports:
+      - "9090:9090"
+    networks:
+      - cms_network
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--spider", "http://localhost:9090/-/healthy"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+    logging:
+      <<: *default-logging
+      options:
+        max-size: "1m"
+        max-file: "1"
+        tag: "{{.Name}}"
+        labels: "service,environment"
+        env: "service=monitoring,container_name={{.Name}}"
+
+  node-exporter:
+    image: prom/node-exporter:latest
+    container_name: node-exporter
+    # restart: unless-stopped
+    volumes:
+      - /proc:/host/proc:ro
+      - /sys:/host/sys:ro
+      - /:/rootfs:ro
+    command:
+      - '--path.procfs=/host/proc'
+      - '--path.sysfs=/host/sys'
+      - '--path.rootfs=/rootfs'
+    # ports:
+    #   - "9100:9100"
+    networks:
+      - cms_network
+    logging:
+      <<: *default-logging
+      options:
+        max-size: "5m"
+        max-file: "2"
+        tag: "{{.Name}}"
+        labels: "service,environment"
+        env: "service=monitoring,container_name={{.Name}}"
+
+  postgres-exporter:
+    image: prometheuscommunity/postgres-exporter:latest
+    container_name: postgres-exporter
+    environment:
+      DATA_SOURCE_NAME: "postgresql://postgres_exporter:password@postgres:5432/postgres?sslmode=disable"
+      PG_EXPORTER_AUTO_DISCOVER_DATABASES: "true"
+    # ports:
+    #   - "9187:9187"
+    networks:
+      - cms_network
+    depends_on:
+      - postgres
+    logging:
+      <<: *default-logging
+      options:
+        max-size: "5m"
+        max-file: "2"
+        tag: "{{.Name}}"
+        labels: "service,environment"
+        env: "service=monitoring,container_name={{.Name}}"
+
+  redis-exporter:
+    image: oliver006/redis_exporter:latest
+    container_name: redis-exporter
+    # restart: unless-stopped
+    environment:
+      REDIS_ADDR: "keydb:6379"
+    # ports:
+    #   - "9121:9121"
+    networks:
+      - cms_network
+    depends_on:
+      - keydb
+    logging:
+      <<: *default-logging
+      options:
+        max-size: "5m"
+        max-file: "2"
+        tag: "{{.Name}}"
+        labels: "service,environment"
+        env: "service=monitoring,container_name={{.Name}}"
+
+  loki:
+    image: grafana/loki:latest
+    container_name: loki
+    # restart: unless-stopped
+    volumes:
+      - ../config/loki/loki-config.yaml:/etc/loki/loki-config.yaml
+      - ../data/loki:/loki
+    command: -config.file=/etc/loki/loki-config.yaml
+    # ports:
+    #   - "3100:3100"
+    networks:
+      - cms_network
+    logging:
+      <<: *default-logging
+      options:
+        max-size: "10m"
+        max-file: "3"
+        tag: "{{.Name}}"
+        labels: "service,environment"
+        env: "service=monitoring,container_name={{.Name}}"
+
+  promtail:
+    image: grafana/promtail:latest
+    container_name: promtail
+    # restart: unless-stopped
+    volumes:
+      - ../config/promtail/promtail-config.yaml:/etc/promtail/promtail-config.yaml
+      - /var/log:/var/log
+      - /var/lib/docker/containers:/var/lib/docker/containers
+      - /var/run/docker.sock:/var/run/docker.sock
+    command: -config.file=/etc/promtail/promtail-config.yaml
+    ports:
+      - "9080:9080"
+    networks:
+      - cms_network
+    depends_on:
+      - loki
+    logging:
+      <<: *default-logging
+      options:
+        max-size: "5m"
+        max-file: "2"
+        tag: "{{.Name}}"
+        labels: "service,environment"
+        env: "service=monitoring,container_name={{.Name}}"
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: grafana
+    # restart: unless-stopped
+    volumes:
+      - ../data/grafana:/var/lib/grafana
+      - ../config/grafana/provisioning:/etc/grafana/provisioning
+      - ../config/grafana/dashboards:/etc/grafana/dashboards
+    environment:
+      GF_SECURITY_ADMIN_USER: "${GRAFANA_ADMIN_USER:-admin}"
+      GF_SECURITY_ADMIN_PASSWORD: "${GRAFANA_ADMIN_PASSWORD:-grafana}"
+      GF_USERS_ALLOW_SIGN_UP: "false"
+      GF_INSTALL_PLUGINS: "grafana-piechart-panel,grafana-clock-panel"
+    ports:
+      - "3000:3000"
+    networks:
+      - cms_network
+    depends_on:
+      - prometheus
+      - loki
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--spider", "http://localhost:3000/login"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+    logging:
+      <<: *default-logging
+      options:
+        max-size: "10m"
+        max-file: "3"
+        tag: "{{.Name}}"
+        labels: "service,environment"
+        env: "service=monitoring,container_name={{.Name}}"
+
+  cadvisor:
+    image: google/cadvisor:latest
+    container_name: cadvisor
+    # restart: unless-stopped
+    volumes:
+      - /:/rootfs:ro
+      - /var/run:/var/run:rw
+      - /sys:/sys:ro
+      - /var/lib/docker/:/var/lib/docker:ro
+    # ports:
+    #   - "8080:8080"
+    networks:
+      - cms_network
+    command: --docker_only
+    logging:
+      <<: *default-logging
+      options:
+        max-size: "5m"
+        max-file: "2"
+        tag: "{{.Name}}"
+        labels: "service,environment"
+        env: "service=monitoring,container_name={{.Name}}"
