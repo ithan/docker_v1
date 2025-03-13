@@ -1,0 +1,13 @@
+# Main database compose file that includes both PostgreSQL and KeyDB
+# Run with: docker compose up -d (from the database directory)
+
+# Include individual service compose files
+include:
+  - ./compose/postgresql.yaml
+  - ./compose/keydb.yaml
+
+# Reference the external network (needed at this level too)
+networks:
+  cms_network:
+    external: true
+    name: cms_network

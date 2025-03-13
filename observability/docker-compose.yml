@@ -1,0 +1,15 @@
+# Main observability compose file that includes all monitoring services
+# Run with: docker compose up -d (from the observability directory)
+
+# Include individual service compose files
+include:
+  - ./compose/prometheus.yaml
+  - ./compose/loki.yaml
+  - ./compose/grafana.yaml
+  - ./compose/exporters.yaml
+
+# Reference the external network (needed at this level too)
+networks:
+  cms_network:
+    external: true
+    name: cms_network

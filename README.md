@@ -1,35 +1,79 @@
 # CMS Development Environment with Full Observability
 
-This setup provides a complete development environment for Directus CMS with a full observability stack.
+This setup provides a complete development environment for Directus CMS with a full observability stack. Each component can be started independently as needed.
 
-## Components
+## Project Structure
 
-- **Directus**: Latest version running on its own container
-- **PostgreSQL 17**: With pgvector extension for vector search capabilities
-- **KeyDB**: High-performance Redis alternative
-- **Observability Stack**:
-  - Prometheus: Metrics collection and storage
-  - Grafana: Visualization and dashboards
-  - Loki: Log aggregation
-  - Promtail: Log collector
-  - Various exporters for PostgreSQL, KeyDB, and system metrics
+```
+root\
+├── .env                        # Main environment variables
+├── docker-compose.yml          # Root compose file (network only)
+├── utils\                      # Reusable Docker configurations
+│   ├── logging.yml             # Shared logging configuration
+│   ├── healthchecks.yml        # Shared healthcheck definitions
+├── database\                   # Database services
+│   ├── docker-compose.yml      # PostgreSQL compose file
+│   ├── config\...              # PostgreSQL configuration
+│   ├── data\...                # PostgreSQL data
+│   ├── cache\                  # Cache services
+│       ├── docker-compose.yml  # KeyDB compose file
+│       ├── config\...          # KeyDB configuration
+│       ├── data\...            # KeyDB data
+├── cms\                        # CMS services
+│   ├── docker-compose.yml      # Directus compose file
+│   ├── config\...              # Directus configuration
+│   ├── data\...                # Directus data
+├── observability\              # Monitoring stack
+│   ├── docker-compose.yml      # Observability compose file
+│   ├── config\...              # Prometheus, Grafana, etc. configuration
+│   ├── data\...                # Monitoring data
+├── utilities\                  # Development tools
+│   ├── docker-compose.yml      # Utilities compose file
+│   ├── data\...                # Utilities data
+```
 
 ## Getting Started
 
-1. Create all the required directories:
+1. First, set up the network:
 
 ```bash
-mkdir -p data/{directus/{uploads,extensions,config},postgres,keydb,prometheus,loki,grafana,pgadmin} config/{postgres/{init},keydb,prometheus,loki,promtail,grafana/provisioning/{datasources,dashboards}} compose
+cd d:\cms
+docker compose up -d
 ```
 
-2. Copy all configuration files to their respective directories.
-
-3. Update the `.env` file with secure credentials.
-
-4. Start the environment:
+2. Start the PostgreSQL database:
 
 ```bash
-docker-compose up -d
+cd d:\cms\database
+docker compose up -d
+```
+
+3. Start the KeyDB cache:
+
+```bash
+cd d:\cms\database\cache
+docker compose up -d
+```
+
+4. Start Directus CMS:
+
+```bash
+cd d:\cms\cms
+docker compose up -d
+```
+
+5. Start the observability stack (optional):
+
+```bash
+cd d:\cms\observability
+docker compose up -d
+```
+
+6. Start development utilities (optional):
+
+```bash
+cd d:\cms\utilities
+docker compose up -d
 ```
 
 ## Access Points
@@ -38,6 +82,11 @@ docker-compose up -d
 - Grafana: http://localhost:3000
 - Prometheus: http://localhost:9090
 - PgAdmin: http://localhost:5050
+- MailHog: http://localhost:8025
+
+## Environment Variables
+
+Each component uses environment variables defined in `.env` files. The root `.env` contains common variables, but you can create specific `.env` files in each component directory to override them.
 
 ## Monitoring
 

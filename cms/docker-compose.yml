@@ -1,0 +1,12 @@
+# Main CMS compose file that includes Directus
+# Run with: docker compose up -d (from the cms directory)
+
+# Include individual service compose files
+include:
+  - ./compose/directus.yaml
+
+# Reference the external network (needed at this level too)
+networks:
+  cms_network:
+    external: true
+    name: cms_network

@@ -1,0 +1,15 @@
+# Reusable healthcheck configurations for different services
+
+# Standard healthcheck configuration for web services
+x-healthcheck-web: &default-healthcheck-web
+  interval: 30s
+  timeout: 5s
+  retries: 3
+  start_period: 30s
+
+# Standard healthcheck configuration for database services
+x-healthcheck-db: &default-healthcheck-db
+  interval: 10s
+  timeout: 5s
+  retries: 5
+  start_period: 10s

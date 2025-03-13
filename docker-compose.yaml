@@ -1,9 +1,11 @@
+version: '3.8'
+
 include:
-  - compose/directus.yaml
-  - compose/database.yaml
-  - compose/cache.yaml
-  - compose/observability.yaml
-  - compose/utility_tools.yaml
+  - database/compose/database.yaml
+  - database/compose/cache.yaml
+  - cms/compose/directus.yaml
+  - observability/compose/observability.yaml
+  - utilities/compose/utility_tools.yaml
 
 networks:
   cms_network:

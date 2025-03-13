@@ -1,12 +1,9 @@
-x-logging: &default-logging
-  driver: "json-file"
-  options:
-    max-size: "10m"
-    max-file: "3"
-    labels: "service,environment"
-    tag: "{{.Name}}"
-    # Adding this ensures log messages are properly formatted as JSON
-    env: "container_name={{.Name}},service={{.Service}}"
+# PostgreSQL database service configuration
+
+# Include common configuration
+include:
+  - ../../utils/logging.yml
+  - ../../utils/healthchecks.yml
 
 services:
   postgres:
@@ -14,7 +11,9 @@ services:
     container_name: postgres
     # restart: unless-stopped
     volumes:
+      # Store data in the local data directory
       - ../data/postgres:/var/lib/postgresql/data
+      # Mount configuration files
       - ../config/postgres/postgresql.conf:/etc/postgresql/postgresql.conf
       - ../config/postgres/pg_hba.conf:/etc/postgresql/pg_hba.conf
       - ../config/postgres/init:/docker-entrypoint-initdb.d
@@ -26,13 +25,11 @@ services:
     ports:
       - "5432:5432"
     networks:
+      # Use the external network created by the root docker-compose
       - cms_network
     healthcheck:
+      <<: *default-healthcheck-db
       test: ["CMD", "pg_isready", "--host=localhost", "--username=directus"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-      start_period: 10s
     logging:
       <<: *default-logging
       options:

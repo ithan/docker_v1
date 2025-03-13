@@ -1,0 +1,8 @@
+# Main docker-compose file that only defines the shared network
+# Run this first to create the network that other services will use
+
+# Define networks that can be used by all services
+networks:
+  cms_network:
+    name: cms_network
+    driver: bridge

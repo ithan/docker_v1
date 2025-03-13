@@ -1,12 +1,9 @@
-x-logging: &default-logging
-  driver: "json-file"
-  options:
-    max-size: "10m"
-    max-file: "3"
-    labels: "service,environment"
-    tag: "{{.Name}}"
-    # Adding this ensures log messages are properly formatted as JSON
-    env: "container_name={{.Name}},service={{.Service}}"
+# KeyDB cache service configuration
+
+# Include common configuration
+include:
+  - ../../utils/logging.yml
+  - ../../utils/healthchecks.yml
 
 services:
   keydb:
@@ -14,19 +11,19 @@ services:
     container_name: keydb
     # restart: unless-stopped
     volumes:
+      # Store data in the local data directory
       - ../data/keydb:/data
+      # Mount configuration file
       - ../config/keydb/keydb.conf:/etc/keydb/keydb.conf
     command: keydb-server /etc/keydb/keydb.conf
     ports:
       - "6379:6379"
     networks:
+      # Use the external network created by the root docker-compose
       - cms_network
     healthcheck:
+      <<: *default-healthcheck-db
       test: ["CMD", "keydb-cli", "ping"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-      start_period: 10s
     logging:
       <<: *default-logging
       options:

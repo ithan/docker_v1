@@ -1,12 +1,9 @@
-x-logging: &default-logging
-  driver: "json-file"
-  options:
-    max-size: "10m"
-    max-file: "3"
-    labels: "service,environment"
-    tag: "{{.Name}}"
-    # Adding this ensures log messages are properly formatted as JSON
-    env: "container_name={{.Name}},service={{.Service}}"
+# Directus CMS service configuration
+
+# Include common configuration
+include:
+  - ../../utils/logging.yml
+  - ../../utils/healthchecks.yml
 
 services:
   directus:
@@ -16,24 +13,18 @@ services:
     ports:
       - "8055:8055"
     volumes:
+      # Store data in the local data directory
       - ../data/directus/uploads:/directus/uploads
       - ../data/directus/extensions:/directus/extensions
       - ../data/directus/config:/directus/config
     env_file:
       - ../config/directus/.env
     networks:
+      # Use the external network created by the root docker-compose
       - cms_network
-    depends_on:
-      postgres:
-        condition: service_healthy
-      keydb:
-        condition: service_healthy
     healthcheck:
+      <<: *default-healthcheck-web
       test: ["CMD", "wget", "--no-verbose", "--spider", "http://localhost:8055/server/health"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-      start_period: 30s
     logging:
       <<: *default-logging
       options:
