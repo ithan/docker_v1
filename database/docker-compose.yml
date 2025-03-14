@@ -5,6 +5,8 @@
 include:
   - ./compose/postgresql.yaml
   - ./compose/keydb.yaml
+  - ../utils/healthchecks.yml
+  - ../utils/logging.yml
 
 # Reference the external network (needed at this level too)
 networks:

@@ -1,9 +1,20 @@
-# PostgreSQL database service configuration
+# Define reusable configurations
+x-healthcheck-db: &default-healthcheck-db
+  interval: 10s
+  timeout: 5s
+  retries: 5
+  start_period: 10s
 
-# Include common configuration
-include:
-  - ../../utils/logging.yml
-  - ../../utils/healthchecks.yml
+x-logging: &default-logging
+  driver: "json-file"
+  options:
+    max-size: "10m"
+    max-file: "3"
+    labels: "service,environment"
+    tag: "{{.Name}}"
+    env: "container_name={{.Name}},service={{.Service}}"
+    
+# PostgreSQL database service configuration
 
 services:
   postgres:
