@@ -23,6 +23,8 @@ services:
       - ../data/keydb:/data
       - ../config/keydb/keydb.conf:/etc/keydb/keydb.conf
     command: keydb-server /etc/keydb/keydb.conf
+    env_file:
+      - ../.env
     ports:
       - "6379:6379"
     networks:

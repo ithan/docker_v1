@@ -5,6 +5,7 @@
 include:
   - ./compose/postgresql.yaml
   - ./compose/keydb.yaml
+  - ./compose/pgpool.yaml
   - ../utils/healthchecks.yml
   - ../utils/logging.yml
 

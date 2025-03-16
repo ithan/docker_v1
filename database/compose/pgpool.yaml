@@ -1,0 +1,54 @@
+services:
+  pgpool:
+    image: bitnami/pgpool:latest
+    container_name: pgpool
+    # restart: unless-stopped
+    volumes:
+      - ../config/pgpool/pgpool.conf:/opt/bitnami/pgpool/conf/pgpool.conf
+      - ../data/pgpool:/bitnami/pgpool
+    env_file:
+      - ../.env
+    environment:
+      - PGPOOL_ADMIN_USERNAME=${PGPOOL_ADMIN_USER:-admin}
+      - PGPOOL_ADMIN_PASSWORD=${PGPOOL_ADMIN_PASSWORD:-admin}
+      - PGPOOL_POSTGRES_USERNAME=${POSTGRES_USER:-directus}
+      - PGPOOL_POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-directus}
+      - PGPOOL_POSTGRES_HOST=postgres
+      - PGPOOL_POSTGRES_PORT=5432
+      
+      # Required params that were missing
+      - PGPOOL_BACKEND_NODES=0:postgres:5432
+      - PGPOOL_SR_CHECK_USER=${POSTGRES_USER:-directus}
+      - PGPOOL_SR_CHECK_PASSWORD=${POSTGRES_PASSWORD:-directus}
+      - PGPOOL_HEALTH_CHECK_USER=${POSTGRES_USER:-directus}
+      - PGPOOL_HEALTH_CHECK_PASSWORD=${POSTGRES_PASSWORD:-directus}
+      
+      # Cache and connection settings
+      - PGPOOL_ENABLE_LOAD_BALANCING=no
+      - PGPOOL_ENABLE_QUERY_CACHE=yes
+      - PGPOOL_MEMORY_CACHE_ENABLED=yes
+      - PGPOOL_MAX_POOL=4
+      - PGPOOL_NUM_INIT_CHILDREN=32
+      - PGPOOL_CHILD_LIFE_TIME=300
+      - PGPOOL_CONNECTION_CACHE=on
+      - PGPOOL_CLIENT_IDLE_LIMIT=0
+    ports:
+      - "5433:5432" # Expose on a different port than Postgres
+    networks:
+      - cms_network
+    depends_on:
+      - postgres
+    healthcheck:
+      test: ["CMD", "pg_isready", "-h", "localhost", "-p", "5432", "-U", "${PGPOOL_ADMIN_USER:-admin}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+        labels: "service,environment"
+        tag: "{{.Name}}"
+        env: "service=database,container_name={{.Name}}"
