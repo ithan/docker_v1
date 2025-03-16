@@ -1,37 +1,62 @@
 services:
   pgpool:
-    image: bitnami/pgpool:latest
+    build:
+      context: ../docker/pgpool
+      dockerfile: Dockerfile
     container_name: pgpool
     # restart: unless-stopped
     volumes:
-      - ../config/pgpool/pgpool.conf:/opt/bitnami/pgpool/conf/pgpool.conf
-      - ../data/pgpool:/bitnami/pgpool
+      - pgpool_oiddir:/bitnami/pgpool/oiddir
+      - ../config/pgpool/pgpool.conf:/opt/bitnami/pgpool/conf/pgpool_cache.conf
     env_file:
       - ../.env
     environment:
+      # Authentication
       - PGPOOL_ADMIN_USERNAME=${PGPOOL_ADMIN_USER:-admin}
       - PGPOOL_ADMIN_PASSWORD=${PGPOOL_ADMIN_PASSWORD:-admin}
       - PGPOOL_POSTGRES_USERNAME=${POSTGRES_USER:-directus}
       - PGPOOL_POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-directus}
-      - PGPOOL_POSTGRES_HOST=postgres
-      - PGPOOL_POSTGRES_PORT=5432
-      
-      # Required params that were missing
+     
+      # Backend configuration
       - PGPOOL_BACKEND_NODES=0:postgres:5432
       - PGPOOL_SR_CHECK_USER=${POSTGRES_USER:-directus}
       - PGPOOL_SR_CHECK_PASSWORD=${POSTGRES_PASSWORD:-directus}
-      - PGPOOL_HEALTH_CHECK_USER=${POSTGRES_USER:-directus}
-      - PGPOOL_HEALTH_CHECK_PASSWORD=${POSTGRES_PASSWORD:-directus}
-      
-      # Cache and connection settings
-      - PGPOOL_ENABLE_LOAD_BALANCING=no
-      - PGPOOL_ENABLE_QUERY_CACHE=yes
-      - PGPOOL_MEMORY_CACHE_ENABLED=yes
-      - PGPOOL_MAX_POOL=4
+     
+      # Important: Set the user config file to use our cache settings
+      - PGPOOL_USER_CONF_FILE=/opt/bitnami/pgpool/conf/pgpool_cache.conf
+
+      # Connection pooling settings
       - PGPOOL_NUM_INIT_CHILDREN=32
+      - PGPOOL_MAX_POOL=4
       - PGPOOL_CHILD_LIFE_TIME=300
-      - PGPOOL_CONNECTION_CACHE=on
       - PGPOOL_CLIENT_IDLE_LIMIT=0
+     
+      # In-memory query cache settings
+      - PGPOOL_MEMORY_CACHE_ENABLED=yes
+      - PGPOOL_MEMQCACHE_METHOD=shmem
+      - PGPOOL_MEMQCACHE_TOTAL_SIZE=512MB
+      - PGPOOL_MEMQCACHE_MAX_NUM_CACHE=100000
+      - PGPOOL_MEMQCACHE_CACHE_BLOCK_SIZE=1MB
+      - PGPOOL_MEMQCACHE_EXPIRE=0
+      - PGPOOL_MEMQCACHE_AUTO_CACHE_INVALIDATION=yes
+      - PGPOOL_MEMQCACHE_MAXCACHE=2MB
+      - PGPOOL_MEMQCACHE_OIDDIR=/bitnami/pgpool/oiddir
+      - PGPOOL_WHITE_MEMQCACHE_TABLE_LIST='.*'
+      - PGPOOL_MEMQCACHE_TABLE_OIDDIR=/bitnami/pgpool/oiddir
+     
+      # Load balancing (disabled since you have one node)
+      - PGPOOL_ENABLE_LOAD_BALANCING=no
+      - PGPOOL_DISABLE_LOAD_BALANCE_ON_WRITE=transaction
+     
+      # Logging settings - corrected to use "yes"/"no" format
+      - PGPOOL_ENABLE_LOG_CONNECTIONS=yes
+      - PGPOOL_LOG_STATEMENT=all
+      - PGPOOL_LOG_MIN_MESSAGES=debug1
+      - PGPOOL_ENABLE_LOG_PER_NODE_STATEMENT=yes
+      # Authentication settings
+      - PGPOOL_AUTHENTICATION_METHOD=scram-sha-256
+      - PGPOOL_AES_KEY=someverysecretkey12345678901234
+     
     ports:
       - "5433:5432" # Expose on a different port than Postgres
     networks:
@@ -52,3 +77,6 @@ services:
         labels: "service,environment"
         tag: "{{.Name}}"
         env: "service=database,container_name={{.Name}}"
+
+volumes:
+  pgpool_oiddir:

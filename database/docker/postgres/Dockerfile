@@ -1,9 +1,7 @@
 # Start from the official PostgreSQL 17 image
 FROM postgres:17
-
 # Set maintainer label
 LABEL maintainer="Ithan lara <ithan.lara@prusa3d.cz>"
-
 # Install build dependencies and extension packages
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
@@ -15,10 +13,11 @@ RUN apt-get update \
         ca-certificates \
         # For monitoring utilities
         curl \
+        # For PostgreSQL connectivity
+        libpq-dev \
         # Cleanup to reduce image size
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
-
 # Install pgvector extension
 RUN cd /tmp \
     && git clone --branch v0.5.1 https://github.com/pgvector/pgvector.git \
@@ -27,7 +26,6 @@ RUN cd /tmp \
     && make install \
     && cd .. \
     && rm -rf pgvector
-
 # Install pg_wait_sampling extension
 RUN cd /tmp \
     && git clone https://github.com/postgrespro/pg_wait_sampling.git \
@@ -36,33 +34,6 @@ RUN cd /tmp \
     && make USE_PGXS=1 install \
     && cd .. \
     && rm -rf pg_wait_sampling
-
-# Add pgpool dependencies 
-RUN apt-get update \
-&& apt-get install -y --no-install-recommends \
-    # Existing dependencies
-    build-essential \
-    postgresql-server-dev-17 \
-    git \
-    ca-certificates \
-    curl \
-    # Add pgpool packages
-    postgresql-17-pgpool2 \
-    libpgpool2 \
-&& apt-get clean \
-&& rm -rf /var/lib/apt/lists/*
-
-# Install pgpool_adm extension
-RUN cd /tmp \
-&& git clone https://github.com/pgpool/pgpool2.git \
-&& cd pgpool2 \
-&& ./configure --with-pgsql=/usr/include/postgresql/17/server \
-&& cd src/sql/pgpool_adm \
-&& make \
-&& make install \
-&& cd /tmp \
-&& rm -rf pgpool2
-
 # Install auto_explain and other contrib modules
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
@@ -70,7 +41,6 @@ RUN apt-get update \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/* \
     && echo "shared_preload_libraries = 'pg_stat_statements,auto_explain,pg_wait_sampling'" >> /usr/share/postgresql/postgresql.conf.sample
-
 # auto_explain is a module that needs to be loaded via shared_preload_libraries
 # Create a custom configuration file to enable it
 RUN echo "# Enable auto_explain module\n\
@@ -89,6 +59,5 @@ auto_explain.log_nested_statements = on\n\
 pg_stat_statements.track = all\n\
 pg_stat_statements.max = 10000\n\
 track_activity_query_size = 4096\n" > /auto_explain.conf
-
 # Set the default command
 CMD ["postgres"]

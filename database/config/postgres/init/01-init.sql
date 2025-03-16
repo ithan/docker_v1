@@ -39,6 +39,5 @@ CREATE EXTENSION IF NOT EXISTS pg_buffercache;
 CREATE EXTENSION IF NOT EXISTS pg_visibility;
 CREATE EXTENSION IF NOT EXISTS pgstattuple;
 CREATE EXTENSION IF NOT EXISTS pg_wait_sampling;
-CREATE EXTENSION IF NOT EXISTS pgpool_adm;
 -- Note: auto_explain is a module that needs to be loaded via shared_preload_libraries,
 -- not as an extension. It's now configured in the Dockerfile.
