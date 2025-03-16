@@ -1,36 +1,870 @@
+# Prometheus configuration file example
+#
+# To use this configuration, start Prometheus with:
+# ./prometheus --config.file=prometheus.yml
+#
+# Note on time units: when duration is needed, it is possible to specify
+# it using the following notation:
+#
+# ms - milliseconds
+# s  - seconds
+# m  - minutes
+# h  - hours
+# d  - days
+# w  - weeks
+# y  - years
+#
+# Examples: 5s, 1m, 2h30m, 5d, 1w, 1y
+#
+# Note on size units:
+# B  - bytes
+# KB - kilobytes
+# MB - megabytes
+# GB - gigabytes
+# TB - terabytes
+# PB - petabytes
+# EB - exabytes
+#
+# Examples: 100MB, 2GB
+
+# -------------------------------------------------------------------------
+# Global configuration
+# -------------------------------------------------------------------------
 global:
+  # How frequently to scrape targets by default.
+  # Lower values increase accuracy but also system load.
+  # For development, 15s is a good balance.
   scrape_interval: 15s
+
+  # How long until a scrape request times out.
+  # Should be less than scrape_interval to avoid overlap.
+  scrape_timeout: 10s
+
+  # How frequently to evaluate rules.
+  # For alerting and recording rules.
   evaluation_interval: 15s
 
+  # The protocols to negotiate during a scrape with the client.
+  # In order of preference. If you're using experimental features
+  # like native histograms, you might need to adjust this.
+  scrape_protocols:
+    - OpenMetricsText1.0.0
+    - OpenMetricsText0.0.1
+    - PrometheusText0.0.4
+
+  # External labels are attached to all metrics when they are sent to external
+  # systems like Alertmanager, remote storage, or federation.
+  external_labels:
+    environment: development
+    region: local
+    datacenter: home
+    owner: developer
+
+  # File to which PromQL queries are logged.
+  # Useful for debugging and query optimization.
+  # query_log_file: /prometheus/logs/query.log
+
+  # File to which scrape failures are logged.
+  # Helps identify problematic targets.
+  # scrape_failure_log_file: /prometheus/logs/scrape_failures.log
+
+  # Maximum size of uncompressed response body from scrape targets.
+  # Set to 0 for no limit. Example: 100MB.
+  body_size_limit: 50MB
+
+  # Per-scrape limit on number of scraped samples.
+  # If more than this number of samples are present after metric relabeling,
+  # the entire scrape will be treated as failed. 0 means no limit.
+  sample_limit: 50000
+
+  # Maximum number of labels per sample.
+  # If more labels are present, the entire scrape will be treated as failed.
+  # 0 means no limit.
+  label_limit: 500
+
+  # Maximum length in bytes of a label name.
+  # If longer label names are present, the entire scrape will be treated as failed.
+  # 0 means no limit.
+  label_name_length_limit: 1024
+
+  # Maximum length in bytes of a label value.
+  # If longer label values are present, the entire scrape will be treated as failed.
+  # 0 means no limit.
+  label_value_length_limit: 2048
+
+  # Maximum number of targets per scrape config.
+  # If more targets are present, some will be dropped.
+  # 0 means no limit.
+  target_limit: 0
+
+# -------------------------------------------------------------------------
+# Runtime configuration (adjustable at runtime)
+# -------------------------------------------------------------------------
+runtime:
+  # Configure Go garbage collector (GOGC parameter).
+  # Lower values increase CPU usage but reduce memory usage.
+  # Default is 100, but 75 is better for memory-constrained environments.
+  gogc: 75
+
+# -------------------------------------------------------------------------
+# Rule files
+# -------------------------------------------------------------------------
+# Specifies a list of files from which rules and alerts are read.
+# Globs are supported, e.g., rules/*.rules.
+rule_files:
+  # Recording rules precompute frequently needed expressions
+  - "rules/recording.rules"
+  # Alerting rules define alert conditions
+  - "rules/alerts/*.rules"
+
+# Sample of recording rules file content (rules/recording.rules):
+# groups:
+#   - name: example
+#     interval: 1m
+#     rules:
+#       - record: job:http_requests_total:sum
+#         expr: sum by(job) (http_requests_total)
+
+# Sample of alerting rules file content (rules/alerts/instance.rules):
+# groups:
+#   - name: instance
+#     rules:
+#       - alert: InstanceDown
+#         expr: up == 0
+#         for: 5m
+#         labels:
+#           severity: critical
+#         annotations:
+#           summary: "Instance {{ $labels.instance }} down"
+#           description: "{{ $labels.instance }} has been down for more than 5 minutes."
+
+# -------------------------------------------------------------------------
+# Scrape configurations
+# -------------------------------------------------------------------------
+# A list of scrape configurations that specify how to scrape metrics.
 scrape_configs:
+  # Prometheus self-monitoring
+  # -----------------------------------------------------------------
   - job_name: 'prometheus'
+    # Override the global scrape interval for this job.
+    # Useful for critical metrics that need higher resolution.
+    scrape_interval: 10s
+    
+    # How frequently to scrape targets from this job.
+    scrape_timeout: 5s
+    
+    # Protocols to negotiate during a scrape with the client.
+    scrape_protocols:
+      - OpenMetricsText1.0.0
+      - OpenMetricsText0.0.1
+      - PrometheusText0.0.4
+    
+    # honor_labels controls how Prometheus handles conflicts between labels
+    # that are already present in scraped data and labels that Prometheus
+    # would attach server-side ("job" and "instance" labels, etc).
+    # If true, label conflicts are resolved by keeping the scraped label.
+    # If false, conflicts are resolved by renaming the scraped label.
+    honor_labels: false
+    
+    # honor_timestamps controls whether Prometheus respects the timestamps
+    # present in scraped data.
+    honor_timestamps: true
+    
+    # Configures the protocol scheme used for requests.
+    scheme: http
+    
+    # The HTTP resource path on which to fetch metrics.
+    metrics_path: /metrics
+    
+    # Optional HTTP URL parameters.
+    params:
+      # You can add custom parameters here, for example:
+      # format: ['prometheus']
+    
+    # If enable_compression is false, Prometheus will request uncompressed responses.
+    enable_compression: true
+    
+    # HTTP client settings.
+    # Basic auth and other options can be configured here.
+    # basic_auth:
+    #   username: admin
+    #   password: password
+    
     static_configs:
       - targets: ['localhost:9090']
+        labels:
+          service: 'prometheus'
+          environment: 'development'
+          instance_type: 'monitoring'
+          criticality: 'high'
+          owner: 'platform-team'
+    
+    # Optional relabeling rules to modify labels before scraping.
+    # Can be used to transform target labels or select specific metrics.
+    relabel_configs:
+      # This example adds an 'application' label based on job name
+      - source_labels: [job]
+        target_label: application
+        replacement: 'monitoring'
+      
+      # Add a 'team' label
+      - source_labels: [job]
+        target_label: team
+        replacement: 'infra'
+    
+    # Optional metric relabeling rules to apply after scraping.
+    # Can be used to drop or modify metrics after they're collected.
+    metric_relabel_configs:
+      # Example: drop high-cardinality metrics that can cause performance issues
+      - source_labels: [__name__]
+        regex: 'prometheus_tsdb_compaction_chunk_range_seconds_bucket'
+        action: drop
+      
+      # Example: rename a metric
+      - source_labels: [__name__]
+        regex: 'prometheus_build_info'
+        target_label: __name__
+        replacement: 'service_build_info'
 
+  # Node Exporter - system metrics
+  # -----------------------------------------------------------------
   - job_name: 'node-exporter'
+    scrape_interval: 15s
+    scrape_timeout: 10s
+    
+    # The scheme can be http or https.
+    scheme: http
+    
+    # Enable HTTP/2 support if available.
+    enable_http2: true
+    
     static_configs:
       - targets: ['node-exporter:9100']
+        labels:
+          service: 'node-exporter'
+          environment: 'development'
+          machine_type: 'virtual'
+          os: 'linux'
+          component: 'hardware'
+    
+    # Relabel configurations can be used to modify labels before scraping.
+    relabel_configs:
+      # Add a dc label for datacenter
+      - source_labels: [__address__]
+        target_label: dc
+        replacement: 'local'
+      
+      # Add instance type label
+      - source_labels: [__address__]
+        target_label: instance_type
+        replacement: 'development'
+    
+    # Metric relabel configs can be used to drop specific metrics.
+    metric_relabel_configs:
+      # Example: drop filesystem metrics for temporary filesystems
+      - source_labels: [__name__, mountpoint]
+        regex: 'node_filesystem_.*; (/tmp|/var/tmp|/dev/shm)'
+        action: drop
+      
+      # Example: drop less important network metrics
+      - source_labels: [__name__, device]
+        regex: 'node_network_.*; (lo|docker.*)'
+        action: drop
 
+  # Postgres Exporter
+  # -----------------------------------------------------------------
   - job_name: 'postgres-exporter'
+    scrape_interval: 30s  # Database metrics can be collected less frequently
+    scrape_timeout: 15s
+    
+    # HTTP parameters to include in request URI
+    params:
+      # If your exporter supports parameterized scraping:
+      # database: ['postgres', 'users']  # Scrape multiple databases
+    
     static_configs:
       - targets: ['postgres-exporter:9187']
+        labels:
+          service: 'postgres'
+          environment: 'development'
+          db_type: 'postgres'
+          db_version: '14'
+          db_role: 'primary'
+          component: 'database'
+          criticality: 'high'
+    
+    # Optional TLS configuration if your exporter is secured
+    # tls_config:
+    #   insecure_skip_verify: false
+    #   ca_file: /path/to/ca.crt
+    
+    relabel_configs:
+      # Add a data tier label
+      - source_labels: [__address__]
+        target_label: data_tier
+        replacement: 'operational'
+    
+    metric_relabel_configs:
+      # Keep only essential metrics to reduce load
+      - source_labels: [__name__]
+        regex: 'pg_(database|stat_user_tables|stat_activity|replication)_.*'
+        action: keep
 
+  # Redis Exporter
+  # -----------------------------------------------------------------
   - job_name: 'redis-exporter'
+    scrape_interval: 20s
+    scrape_timeout: 10s
+    
+    # If your Redis exporter supports multiple Redis instances,
+    # you can parameterize which instances to scrape
+    params:
+      # addr: ["redis://redis:6379", "redis://redis-replica:6379"]
+    
     static_configs:
       - targets: ['redis-exporter:9121']
+        labels:
+          service: 'redis'
+          environment: 'development'
+          db_type: 'redis'
+          redis_version: '7'
+          redis_role: 'primary'
+          component: 'cache'
+          criticality: 'medium'
+    
+    relabel_configs:
+      # Add a data tier label
+      - source_labels: [__address__]
+        target_label: data_tier
+        replacement: 'cache'
+    
+    metric_relabel_configs:
+      # Example: keep only the most important metrics
+      - source_labels: [__name__]
+        regex: 'redis_(memory|commands|connections|clients|keyspace)_.*'
+        action: keep
 
+  # cAdvisor - container metrics
+  # -----------------------------------------------------------------
   - job_name: 'cadvisor'
+    scrape_interval: 15s
+    scrape_timeout: 10s
+    
     static_configs:
       - targets: ['cadvisor:8080']
+        labels:
+          service: 'docker'
+          environment: 'development'
+          component: 'container'
+          criticality: 'high'
     
+    # cAdvisor can produce a lot of metrics, so we may want to filter
+    metric_relabel_configs:
+      # Drop less useful container metrics to reduce storage requirements
+      - source_labels: [__name__]
+        regex: 'container_(network_tcp_usage_total|tasks_state|spec_.*)'
+        action: drop
+      
+      # Reduce cardinality by dropping per-CPU metrics
+      - source_labels: [__name__, cpu]
+        regex: 'container_cpu_(.*); cpu[0-9]+'
+        action: drop
+      
+      # Keep only container metrics with the name label to avoid unnamed cgroups
+      - source_labels: [__name__, name]
+        regex: 'container_(.*); .*;'
+        action: keep
+
+  # Loki - log aggregation
+  # -----------------------------------------------------------------
   - job_name: 'loki'
+    scrape_interval: 30s  # Logging systems typically need less frequent scraping
+    scrape_timeout: 15s
+    
     static_configs:
       - targets: ['loki:3100']
+        labels:
+          service: 'loki'
+          environment: 'development'
+          component: 'logging'
+          criticality: 'medium'
+    
+    # Loki metrics can have high cardinality 
+    metric_relabel_configs:
+      # Drop high-cardinality metrics that can cause performance issues
+      - source_labels: [__name__]
+        regex: 'loki_ingester_memory_.*'
+        action: drop
 
+  # Directus - headless CMS
+  # -----------------------------------------------------------------
   - job_name: 'directus'
+    scrape_interval: 20s
+    scrape_timeout: 10s
     metrics_path: /metrics
+    
     static_configs:
       - targets: ['directus:8055']
+        labels:
+          service: 'directus'
+          environment: 'development'
+          component: 'cms'
+          criticality: 'medium'
+          language: 'javascript'
+    
+    # Authentication for Directus metrics endpoint
     authorization:
       type: "Metrics"
       credentials: "prometheus"
+    
+    relabel_configs:
+      # Add application-specific labels
+      - source_labels: [__address__]
+        target_label: app_type
+        replacement: 'cms'
+    
+    metric_relabel_configs:
+      # Example: Focus on performance-related metrics
+      - source_labels: [__name__]
+        regex: '.*_(duration_seconds|errors_total|requests_total).*'
+        action: keep
+
+  # Docker service discovery
+  # -----------------------------------------------------------------
+  - job_name: 'docker'
+    scrape_interval: 15s
+    scrape_timeout: 10s
+    
+    # Docker service discovery configuration
+    # This will automatically find and scrape containers with the
+    # prometheus.io.scrape=true label
+    docker_sd_configs:
+      - host: unix:///var/run/docker.sock
+        refresh_interval: 15s
+        # Filters can target specific containers
+        filters:
+          - name: label
+            values: ['prometheus.io.scrape=true']
+    
+    # Since docker_sd_configs adds many labels, we use relabeling to clean them up
+    relabel_configs:
+      # Skip containers that don't want to be scraped
+      - source_labels: [__meta_docker_container_label_prometheus_io_scrape]
+        regex: 'true'
+        action: keep
+      
+      # Use the container name as the instance label
+      - source_labels: [__meta_docker_container_name]
+        regex: '/(.*)'
+        target_label: instance
+        replacement: '$1'
+      
+      # Set the metrics path based on a container label, if present
+      - source_labels: [__meta_docker_container_label_prometheus_io_metrics_path]
+        regex: (.+)
+        target_label: __metrics_path__
+        replacement: '$1'
+      
+      # Set the scrape port based on a container label, if present
+      - source_labels: [__meta_docker_container_label_prometheus_io_metrics_port]
+        regex: ([^:]+)(?::\d+)?;(\d+)
+        replacement: $1:$2
+        target_label: __address__
+      
+      # Extract the container image as a label
+      - source_labels: [__meta_docker_container_image]
+        target_label: container_image
+      
+      # Add service name from container labels if available
+      - source_labels: [__meta_docker_container_label_com_docker_compose_service]
+        regex: (.+)
+        target_label: service
+      
+      # Add container created timestamp
+      - source_labels: [__meta_docker_container_created]
+        target_label: container_created
+
+  # File-based service discovery
+  # -----------------------------------------------------------------
+  # This is useful for dynamic configuration without restarting Prometheus
+  - job_name: 'file-sd-targets'
+    scrape_interval: 30s
+    
+    # File-based service discovery
+    file_sd_configs:
+      - files:
+          - '/prometheus/sd-configs/*.json'
+          - '/prometheus/sd-configs/*.yml'
+        refresh_interval: 1m
+    
+    # Example file content (/prometheus/sd-configs/custom-targets.json):
+    # [
+    #   {
+    #     "targets": ["target1:9100", "target2:9100"],
+    #     "labels": {
+    #       "env": "dev",
+    #       "job": "custom"
+    #     }
+    #   }
+    # ]
+    
+    relabel_configs:
+      # Add source metadata
+      - source_labels: [__meta_filepath]
+        target_label: sd_file
+        regex: '.*/(.*)'
+        replacement: '$1'
+
+  # HTTP-based service discovery
+  # -----------------------------------------------------------------
+  # Fetch targets from a HTTP endpoint
+  - job_name: 'http-sd-targets'
+    scrape_interval: 30s
+    
+    # HTTP-based service discovery
+    http_sd_configs:
+      - url: 'http://service-registry:8080/targets'
+        refresh_interval: 1m
+    
+    # Example response from the HTTP endpoint:
+    # [
+    #   {
+    #     "targets": ["service1:9100", "service2:9100"],
+    #     "labels": {
+    #       "env": "dev",
+    #       "job": "http_discovered"
+    #     }
+    #   }
+    # ]
+    
+    relabel_configs:
+      - source_labels: [__meta_url]
+        target_label: sd_url
+        regex: 'http://([^/]+).*'
+        replacement: '$1'
+
+  # DNS-based service discovery
+  # -----------------------------------------------------------------
+  # Discover targets through DNS
+  - job_name: 'dns-sd-targets'
+    scrape_interval: 30s
+    
+    # DNS-based service discovery
+    dns_sd_configs:
+      - names:
+          - 'services.example.local'
+        type: 'A'
+        port: 9100
+        refresh_interval: 30s
+    
+    relabel_configs:
+      - source_labels: [__meta_dns_name]
+        target_label: dns_name
+
+  # Exemplars from other services (e.g., Application Traces)
+  # -----------------------------------------------------------------
+  - job_name: 'application-traces'
+    scrape_interval: 15s
+    
+    static_configs:
+      - targets: ['app-service:8080']
+        labels:
+          service: 'application'
+          component: 'backend'
+    
+    # Exemplars allow you to correlate metrics with traces
+    # This is useful for connecting high-level metrics to detailed traces
+    params:
+      # Some exporters require parameters to expose exemplars
+      # exemplar: ['true']
+    
+    # Enable exemplar storage (requires Prometheus with exemplar feature enabled)
+    # honor_exemplars: true
+    
+    relabel_configs:
+      # Example: Extract service name from path
+      - source_labels: [__metrics_path__]
+        regex: '/metrics/(.*)'
+        target_label: service_name
+        replacement: '$1'
+
+# -------------------------------------------------------------------------
+# Alerting configuration
+# -------------------------------------------------------------------------
+alerting:
+  # How frequently to evaluate and send alerts to Alertmanager
+  alert_relabel_configs:
+    # This can modify alert labels before they're sent to Alertmanager
+    - source_labels: [severity]
+      regex: 'warning|critical'
+      action: keep
+    
+    # Add datacenter information to all alerts
+    - target_label: datacenter
+      replacement: 'development'
+  
+  # List of Alertmanager endpoints to send alerts to
+  alertmanagers:
+    - static_configs:
+        - targets:
+            - 'alertmanager:9093'
+      
+      # Alertmanager timeout settings
+      timeout: 10s
+      api_version: v2
+      
+      # TLS configuration for Alertmanager communication
+      # tls_config:
+      #   insecure_skip_verify: false
+      #   server_name: alertmanager.example.com
+      
+      # Basic authentication if needed
+      # basic_auth:
+      #   username: prometheus
+      #   password: secret
+
+# -------------------------------------------------------------------------
+# Storage and TSDB configuration
+# -------------------------------------------------------------------------
+storage:
+  tsdb:
+    # The directory where the time series database is stored
+    path: /prometheus/data
+    
+    # How long to retain samples in storage
+    # For development environment, shorter retention is usually sufficient
+    # Production might need weeks or months
+    retention_time: 15d
+    
+    # Maximum size of storage blocks to be created
+    # This can be tuned for different disk performance characteristics
+    # retention_size: 10GB
+    
+    # Minimum block duration for TSDB
+    min_block_duration: 2h
+    
+    # Maximum block duration for TSDB
+    max_block_duration: 24h
+    
+    # Whether to allow overlapping blocks, which can be useful in deduplication
+    # allow_overlapping_blocks: false
+    
+    # Whether to enable out-of-order sample ingestion
+    out_of_order_time_window: 5m
+  
+  # Exemplars storage configuration (for trace correlation)
+  exemplars:
+    # Maximum number of exemplars to store in memory
+    max_exemplars: 100000
+
+# -------------------------------------------------------------------------
+# Remote write configuration (for long-term storage)
+# -------------------------------------------------------------------------
+remote_write:
+  # Example: Send data to a remote storage system
+  - url: "http://thanos-receive:10908/api/v1/receive"
+    name: thanos_remote_write
+    
+    # Timeout for requests to the remote server
+    remote_timeout: 30s
+    
+    # Choose the right protocol message for remote write
+    # protobuf_message: prometheus.WriteRequest
+    
+    # Headers to include in remote write requests
+    headers:
+      X-Scope-OrgID: prometheus
+    
+    # Write relabeling can filter which samples are sent to remote storage
+    write_relabel_configs:
+      # Example: Only send important metrics to save storage
+      - source_labels: [__name__]
+        regex: '(node|prometheus|alertmanager)_.*'
+        action: keep
+      
+      # Don't send high-cardinality metrics
+      - source_labels: [__name__]
+        regex: '.*_bucket'
+        action: drop
+    
+    # Queue configuration for remote write
+    queue_config:
+      # Number of samples to buffer per shard
+      capacity: 10000
+      
+      # Maximum number of shards, i.e. amount of concurrency
+      max_shards: 20
+      
+      # Minimum number of shards
+      min_shards: 1
+      
+      # Maximum number of samples per send
+      max_samples_per_send: 2000
+      
+      # Maximum time a sample will wait for a send
+      batch_send_deadline: 5s
+      
+      # Initial retry delay. Gets doubled for every retry.
+      min_backoff: 30ms
+      
+      # Maximum retry delay
+      max_backoff: 5s
+      
+      # Retry upon receiving a 429 status code
+      retry_on_http_429: true
+    
+    # Metadata configuration
+    metadata_config:
+      # Whether metric metadata is sent to remote storage
+      send: true
+      
+      # How frequently metric metadata is sent
+      send_interval: 1m
+
+# -------------------------------------------------------------------------
+# Remote read configuration
+# -------------------------------------------------------------------------
+remote_read:
+  # Example: Read data from a remote storage system
+  - url: "http://thanos-query:10902/api/v1/read"
+    name: thanos_remote_read
+    
+    # Timeout for requests to the remote read endpoint
+    remote_timeout: 1m
+    
+    # An optional list of matchers that must be present in a selector
+    # to query the remote read endpoint
+    required_matchers:
+      # env: production
+    
+    # Whether reads should be made for queries for time ranges that
+    # the local storage should have complete data for
+    read_recent: false
+    
+    # Whether to use the external labels as selectors
+    filter_external_labels: true
+
+# -------------------------------------------------------------------------
+# Web configuration
+# -------------------------------------------------------------------------
+web:
+  # The TCP network address to listen on
+  listen_address: 0.0.0.0:9090
+  
+  # Maximum number of simultaneous connections
+  max_connections: 512
+  
+  # Read timeout for HTTP requests
+  read_timeout: 30s
+  
+  # Write timeout for HTTP requests
+  write_timeout: 30s
+  
+  # Maximum request size accepted
+  max_request_size: 10MB
+  
+  # Path to the console templates
+  console_templates: /etc/prometheus/consoles
+  
+  # Path to the console libraries
+  console_libraries: /etc/prometheus/console_libraries
+  
+  # Enable lifecycle API (for reloading configuration)
+  enable_lifecycle: true
+  
+  # Enable admin API (for snapshot, deletion of time series)
+  enable_admin_api: false
+  
+  # Configure CORS
+  cors_origin: ['*']
+  
+  # Page title
+  page_title: "Prometheus Dev Environment"
+  
+  # HTTP server configuration
+  http_server_config:
+    # Enable HTTP/2 support
+    http2: true
+    
+    # HTTP response headers
+    headers:
+      # Content security policy
+      Content-Security-Policy: "default-src 'self'; script-src 'self' 'unsafe-inline';"
+      
+      # Prevent embedding in frames
+      X-Frame-Options: "deny"
+      
+      # Prevent MIME type sniffing
+      X-Content-Type-Options: "nosniff"
+      
+      # XSS protection
+      X-XSS-Protection: "1; mode=block"
+
+# -------------------------------------------------------------------------
+# Tracing configuration
+# -------------------------------------------------------------------------
+tracing:
+  # Endpoint to send traces to (e.g., a Jaeger instance)
+  endpoint: "jaeger:4317"
+  
+  # Client type (grpc or http)
+  client_type: "grpc"
+  
+  # Sampling fraction (0.0 to 1.0)
+  sampling_fraction: 0.1
+  
+  # Whether to use insecure connection
+  insecure: true
+  
+  # Headers for trace requests
+  headers:
+    X-Scope-OrgID: prometheus
+
+# -------------------------------------------------------------------------
+# Query tuning
+# -------------------------------------------------------------------------
+query:
+  # Maximum number of concurrently executing queries
+  max_concurrency: 20
+  
+  # Maximum time a query may take before being aborted
+  timeout: 2m
+  
+  # Maximum number of samples a single query can load into memory
+  max_samples: 50000000
+  
+  # Lookback delta to use for computing rate() and similar functions
+  lookback_delta: 5m
+
+# -------------------------------------------------------------------------
+# PromQL tuning and examples
+# -------------------------------------------------------------------------
+# Note: This section doesn't contain actual configuration options,
+# but provides examples of useful PromQL queries and patterns for reference.
+#
+# Example queries:
+# 
+# 1. CPU usage by instance:
+#    100 - (avg by(instance) (rate(node_cpu_seconds_total{mode="idle"}[5m])) * 100)
+#
+# 2. Memory usage percentage:
+#    100 * (1 - ((node_memory_MemFree_bytes + node_memory_Cached_bytes + node_memory_Buffers_bytes) / node_memory_MemTotal_bytes))
+#
+# 3. Disk usage percentage:
+#    100 - ((node_filesystem_avail_bytes{mountpoint="/"} * 100) / node_filesystem_size_bytes{mountpoint="/"})
+#
+# 4. Network traffic:
+#    rate(node_network_receive_bytes_total{device!="lo"}[5m])
+#    rate(node_network_transmit_bytes_total{device!="lo"}[5m])
+#
+# 5. Postgres active connections:
+#    pg_stat_activity_count{state="active"}
+#
+# 6. Redis memory usage:
+#    redis_memory_used_bytes / redis_memory_max_bytes * 100
+#
+# 7. HTTP request rate:
+#    sum(rate(http_requests_total[5m])) by (status_code)
+#
+# 8. Error rate percentage:
+#    sum(rate(http_requests_total{status_code=~"5.."}[5m])) / sum(rate(http_requests_total[5m])) * 100

@@ -1,6 +1,21 @@
 # Main docker-compose file that only defines the shared network
 # Run this first to create the network that other services will use
 
+
+
+# Dummy series of services to create the network
+services:
+  dummy:
+    image: busybox:latest
+    command: sleep infinity
+    deploy:
+      resources:
+        limits:
+          cpus: '0.01'
+          memory: 6M
+    networks:
+      - cms_network
+
 # Define networks that can be used by all services
 networks:
   cms_network:
