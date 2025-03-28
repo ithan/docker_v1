@@ -2,3 +2,9 @@
 /data/*
 
 data/
+
+.gitignore
+.env
+
+# common files
+.vscode/
