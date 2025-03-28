@@ -1,0 +1,42 @@
+services:
+  postgres:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: academy-postgres
+    env_file:
+      - ../../.env
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-academy}
+      POSTGRES_USER: ${POSTGRES_USER:-academy_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-academy_password}
+      # Additional PostgreSQL configurations
+      POSTGRES_INITDB_ARGS: "--data-checksums"
+      PGDATA: /var/lib/postgresql/data/pgdata
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./config/postgresql.conf:/etc/postgresql/postgresql.conf
+      - ./config/init:/docker-entrypoint-initdb.d
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-academy_user} -d ${POSTGRES_DB:-academy}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    command: ["postgres", "-c", "config_file=/etc/postgresql/postgresql.conf"]
+    labels:
+      com.academy.description: "PostgreSQL database for Academy project"
+      com.academy.environment: "development"
+      com.academy.service: "database"
+
+volumes:
+  postgres_data:
+    name: academy_postgres_data

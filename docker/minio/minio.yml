@@ -1,0 +1,67 @@
+services:
+  minio:
+    image: minio/minio:latest
+    container_name: academy-minio
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ACCESS_KEY:-minioadmin}
+      MINIO_ROOT_PASSWORD: ${MINIO_SECRET_KEY:-minioadmin}
+      MINIO_BROWSER_REDIRECT_URL: ${MINIO_BROWSER_REDIRECT_URL:-http://localhost:9001}
+    volumes:
+      - minio_data:/data
+    ports:
+      - "${MINIO_API_PORT:-9000}:9000"
+      - "${MINIO_CONSOLE_PORT:-9001}:9001"
+    command: server /data --console-address ":9001"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 30s
+      timeout: 20s
+      retries: 3
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    labels:
+      com.academy.description: "MinIO S3-compatible storage for Academy project"
+      com.academy.environment: "development"
+      com.academy.service: "storage"
+
+  # This service will create the bucket and then exit
+  createbuckets:
+    image: minio/mc:latest
+    container_name: academy-minio-init
+    depends_on:
+      minio:
+        condition: service_healthy
+    environment:
+      MINIO_ACCESS_KEY: ${MINIO_ACCESS_KEY:-minioadmin}
+      MINIO_SECRET_KEY: ${MINIO_SECRET_KEY:-minioadmin}
+      MINIO_BUCKET: ${MINIO_BUCKET:-payload}
+    entrypoint: |
+      /bin/sh
+    command: |
+      -c '
+      # Wait for MinIO to be ready
+      sleep 5
+      
+      # Add the MinIO server as an alias
+      mc alias set myminio http://minio:9000 "$${MINIO_ACCESS_KEY}" "$${MINIO_SECRET_KEY}"
+      
+      # Create the bucket if it doesn't exist
+      if ! mc ls myminio | grep -q "$${MINIO_BUCKET}"; then
+        mc mb myminio/"$${MINIO_BUCKET}"
+        echo "Bucket created successfully"
+      else
+        echo "Bucket already exists"
+      fi
+      
+      # Create a prefix for media files
+      mc cp /dev/null myminio/"$${MINIO_BUCKET}"/media/
+      echo "Media prefix created successfully"
+      '
+
+volumes:
+  minio_data:
+    name: academy_minio_data

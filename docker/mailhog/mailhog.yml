@@ -1,0 +1,27 @@
+services:
+  mailhog:
+    image: mailhog/mailhog:latest
+    container_name: academy-mailhog
+    ports:
+      - "${MAILHOG_SMTP_PORT:-1025}:1025" # SMTP port
+      - "${MAILHOG_UI_PORT:-8025}:8025"   # Web UI port
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "nc", "-z", "localhost", "1025"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 5s
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    labels:
+      com.academy.description: "MailHog SMTP server for email testing"
+      com.academy.environment: "development"
+      com.academy.service: "mail"
+      
+volumes:
+  mailhog_data:
+    name: academy_mailhog_data

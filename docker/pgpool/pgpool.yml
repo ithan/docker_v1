@@ -1,0 +1,68 @@
+services:
+  # Your existing postgres service remains unchanged...
+
+  pgpool:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: academy-pgpool
+    env_file:
+      - ../../.env
+    environment:
+      # Backend configuration
+      PGPOOL_BACKEND_NODES: "0:postgres:5432"
+      
+      # Authentication
+      PGPOOL_SR_CHECK_USER: "${POSTGRES_USER:-academy_user}"
+      PGPOOL_SR_CHECK_PASSWORD: "${POSTGRES_PASSWORD:-academy_password}"
+      PGPOOL_POSTGRES_USERNAME: "${POSTGRES_USER:-academy_user}"
+      PGPOOL_POSTGRES_PASSWORD: "${POSTGRES_PASSWORD:-academy_password}"
+      
+      # Admin user
+      PGPOOL_ADMIN_USERNAME: "pgpool_admin"
+      PGPOOL_ADMIN_PASSWORD: "${PGPOOL_ADMIN_PASSWORD:-pgpool_admin_password}"
+      
+      # Connection pooling
+      PGPOOL_NUM_INIT_CHILDREN: "32"
+      PGPOOL_MAX_POOL: "4"
+      PGPOOL_CONNECTION_CACHE: "on"
+      PGPOOL_ENABLE_POOL_HBA: "yes"
+
+      # Logging settings - corrected to use "yes"/"no" format
+      PGPOOL_ENABLE_LOG_CONNECTIONS: no
+      PGPOOL_LOG_STATEMENT: all
+      PGPOOL_LOG_MIN_MESSAGES: debug1
+      PGPOOL_ENABLE_LOG_PER_NODE_STATEMENT: yes
+      
+      # Custom configuration file
+      PGPOOL_USER_CONF_FILE: "/opt/bitnami/pgpool/conf/pgpool_custom.conf"
+    volumes:
+      - pgpool_data:/bitnami/pgpool
+      - ./pgpool/config/pgpool_custom.conf:/opt/bitnami/pgpool/conf/pgpool_custom.conf
+    ports:
+      - "${PGPOOL_PORT:-5433}:5432"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "/opt/bitnami/scripts/pgpool/healthcheck.sh"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    labels:
+      com.academy.description: "Pgpool-II for query caching and connection pooling"
+      com.academy.environment: "development"
+      com.academy.service: "database-proxy"
+
+volumes:
+  postgres_data:
+    name: academy_postgres_data
+  pgpool_data:
+    name: academy_pgpool_data

@@ -1,0 +1,33 @@
+services:
+  keydb:
+    image: eqalpha/keydb:latest
+    container_name: academy-keydb
+    environment:
+      # Pass environment variables from .env
+      KEYDB_PASSWORD: ${KEYDB_PASSWORD:-academy_password}
+    volumes:
+      - keydb_data:/data
+      - ./config/keydb.conf:/etc/keydb/keydb.conf
+    ports:
+      - "${KEYDB_PORT:-6379}:6379"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "keydb-cli", "-a", "${KEYDB_PASSWORD:-academy_password}", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    command: keydb-server /etc/keydb/keydb.conf
+    labels:
+      com.academy.description: "KeyDB cache for Academy project"
+      com.academy.environment: "development"
+      com.academy.service: "cache"
+      
+volumes:
+  keydb_data:
+    name: academy_keydb_data
